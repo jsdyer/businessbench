@@ -1,113 +1,117 @@
+import csv
+from datetime import datetime
 import json
 from pathlib import Path
 import re
-import shutil
 import sys
 import tempfile
 import unittest
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build import ROOT, build, metadata
+from xml.etree import ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from build import BASE, build, margin, money, read_data
+from collectors.ised import dataset, discover, number, urls_for
 
 
-class BuildTests(unittest.TestCase):
-    def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
-        shutil.copytree(ROOT / "web", self.root / "web")
-        shutil.copyfile(ROOT / "tool.json", self.root / "tool.json")
-        shutil.copyfile(ROOT / "README.md", self.root / "README.md")
+class PublishedBenchmarks(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.rows, cls.meta = read_data(ROOT)
+        build(ROOT)
+        cls.site = ROOT / "dist"
 
-    def edit(self, **changes):
-        tool = json.loads((self.root / "tool.json").read_text())
-        tool.update(changes)
-        (self.root / "tool.json").write_text(json.dumps(tool))
+    def test_no_indexable_dead_ends_or_alias_duplicates(self):
+        urls = [
+            e.text
+            for e in ET.parse(self.site / "sitemap.xml").iter()
+            if e.tag.endswith("}loc")
+        ]
+        self.assertEqual(
+            set(urls),
+            {BASE + "records/"}
+            | {BASE + "records/" + code + "/" for code in self.rows},
+        )
+        self.assertEqual(len(urls), len(set(urls)))
+        directory = (self.site / "records/index.html").read_text()
+        for code, row in self.rows.items():
+            route = "records/" + code + "/"
+            self.assertIn('href="./' + code + '/"', directory)
+            page = (self.site / route / "index.html").read_text()
+            self.assertIn(f'<link rel="canonical" href="{BASE}{route}">', page)
+            self.assertIn(money(row["areas"]["00"]["mean"][0]), page)
+            for alias in row["aliases"]:
+                self.assertNotIn(alias, self.rows)
 
-    def test_build_is_scoped_to_web_and_escapes_metadata(self):
-        (self.root / "private.txt").write_text("must not publish")
-        self.edit(title='<img src=x onerror="bad()">')
-        build(self.root)
-        page = (self.root / "dist/index.html").read_text()
-        self.assertIn('&lt;img', page)
-        self.assertNotIn('<img', page)
-        self.assertNotIn('{{', page)
-        self.assertIn('href="./style.css"', page)
-        self.assertFalse((self.root / "dist/private.txt").exists())
-        self.assertTrue((self.root / "dist/.nojekyll").exists())
+    def test_download_uses_source_units_and_suppression(self):
+        with (self.site / "data/benchmarks.csv").open(newline="") as csv_file:
+            rows = list(csv.DictReader(csv_file))
+        self.assertEqual(len(rows), sum(len(p["areas"]) for p in self.rows.values()))
+        report = next(
+            r for r in rows if r["naics"] == "7225" and r["geography"] == "Canada"
+        )
+        actual = self.rows["7225"]["areas"]["00"]
+        self.assertEqual(report["revenue_cad"], str(actual["mean"][0]))
+        self.assertEqual(report["profit_quality"], actual["q"][2])
+        self.assertEqual(report["reference_year"], str(self.meta["year"]))
+        self.assertEqual(margin({"mean": [500, 0, 0]}), 0)
+        self.assertIsNone(margin({"mean": [500, 0, None]}))
 
-    def test_reporting_is_scoped_to_initialized_coolcode_tools(self):
-        for owner, slug, enabled in [
-            ("jsdyer", "coolcode-tool-template", False),
-            ("another-owner", "my-tool", False),
-            ("jsdyer", "my-tool", True),
-        ]:
-            with self.subTest(owner=owner, slug=slug):
-                self.edit(id=slug, url=f"/{slug}/", source=f"https://github.com/{owner}/{slug}")
-                build(self.root)
-                page = (self.root / "dist/index.html").read_text()
-                self.assertEqual('/assets/tool-metrics.js' in page, enabled)
-                self.assertEqual(f'https://coolcode.ca/report/?tool={slug}' in page, enabled)
-                self.assertNotIn("{{", page)
-
-    def test_common_pages_are_opt_in_and_preserve_root_search_title_and_stats(self):
-        self.edit(id="example", url="/example/", source="https://github.com/jsdyer/example")
-        build(self.root)
-        route = self.root / "dist/remove-duplicate-cities/index.html"
-        self.assertFalse(route.exists())
-        entry = self.root / "web/index.html"
-        entry.write_text(re.sub(r"<title>.*?</title>", "<title>Custom search title · CoolCode</title>",
-                                entry.read_text(), count=1, flags=re.S))
-        shutil.copytree(ROOT / "examples/common-pages", self.root / "common-pages")
-        build(self.root)
-        root = (self.root / "dist/index.html").read_text()
-        self.assertIn("<title>Custom search title · CoolCode</title>", root)
-        self.assertIn('href="./remove-duplicate-cities/"', root)
-        self.assertIn('rel="canonical" href="https://coolcode.ca/example/"', root)
-        page = route.read_text()
-        self.assertIn("<title>Remove duplicate cities from a list · CoolCode</title>", page)
-        self.assertIn('rel="canonical" href="https://coolcode.ca/example/remove-duplicate-cities/"', page)
-        self.assertIn('src="../app.mjs"', page)
-        self.assertIn('data-tool-id="example"', page)
-        self.assertIn('src="/assets/tool-metrics.js"', page)
-        self.assertIn("Vancouver\nHalifax\nCharlottetown</textarea>", page)
-
-    def test_rejects_invalid_common_page_paths_and_collisions(self):
-        directory = self.root / "common-pages"
-        directory.mkdir()
-        manifest = directory / "manifest.json"
-        for slug in ("../escape", "/absolute", "a/b", "x?name=1", ""):
-            with self.subTest(slug=slug):
-                manifest.write_text(json.dumps([{"slug": slug, "title": "T", "description": "D"}]))
-                with self.assertRaises(ValueError):
-                    build(self.root)
-        manifest.write_text('[{"slug":"data","title":"Data","description":"Some data"}]')
-        (self.root / "web/data").mkdir()
-        with self.assertRaisesRegex(ValueError, "collides"):
-            build(self.root)
-
-    def test_url_matches_tool_id(self):
-        self.edit(url="/different/")
-        with self.assertRaises(ValueError): metadata(self.root)
-
-    def test_requires_a_source_sentence_and_a_guide_note(self):
-        (self.root / "README.md").write_text("# A tool")
-        with self.assertRaisesRegex(ValueError, "README note"):
-            metadata(self.root)
-        self.edit(data_info={"mode": "local", "detail": ""})
-        with self.assertRaisesRegex(ValueError, "homepage card"):
-            metadata(self.root)
-
-    def test_browser_access_is_explicit(self):
-        self.edit(access="install")
-        with self.assertRaisesRegex(ValueError, "immediately usable"):
-            metadata(self.root)
-
-    def test_failed_build_keeps_existing_output(self):
-        build(self.root)
-        existing = (self.root / "dist/index.html").read_bytes()
-        self.edit(source="javascript:bad()")
-        with self.assertRaises(ValueError): build(self.root)
-        self.assertEqual((self.root / "dist/index.html").read_bytes(), existing)
+    def test_home_example_uses_real_data_and_has_public_provenance(self):
+        root = (self.site / "index.html").read_text()
+        featured = json.loads((ROOT / "config/profiles.json").read_text())["featured"]
+        national = self.rows[featured]["areas"]["00"]
+        self.assertIn(f"{national['n']:,} businesses · Canada", root)
+        self.assertIn(self.meta["source"], root)
+        self.assertIn('type="application/ld+json"', root)
+        self.assertEqual(root.count('rel="canonical"'), 1)
+        self.assertNotRegex(root, r'<input[^>]* name="(?:revenue|expenses)"')
+        status = json.loads((self.site / "data/status.json").read_text())
+        self.assertEqual(status["checked_at"], self.meta["checked_at"])
+        self.assertIsNotNone(datetime.fromisoformat(status["checked_at"]).tzinfo)
+        self.assertEqual(status["industry_count"], len(self.rows))
 
 
-if __name__ == "__main__": unittest.main()
+class SourceParsing(unittest.TestCase):
+    def test_source_numbers_preserve_signed_profit_and_zero(self):
+        self.assertEqual(number("-3.4", 1000), -3400)
+        self.assertEqual(number("0.0", 1000), 0)
+        for missing in ["", "9999", "99999.9", "999999", "9999.9"]:
+            self.assertIsNone(number(missing, 1000))
+        with self.assertRaises(ValueError):
+            number("nan")
+
+    def test_discovery_chooses_latest_official_named_edition(self):
+        items = [
+            {
+                "title": "Financial Performance Data (2024)",
+                "organization": {"name": "ic"},
+            },
+            {
+                "title": "Financial Performance Data 2025",
+                "organization": {"name": "ic"},
+            },
+            {
+                "title": "Financial Performance Data 2099",
+                "organization": {"name": "other"},
+            },
+        ]
+        self.assertEqual(discover(items), (2025, items[1]))
+        with self.assertRaises(ValueError):
+            urls_for({"resources": []}, 2025)
+
+    def test_parser_keeps_year_and_rejects_malformed_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "expenses"
+            file.write_text("inc,year\n3,2023\n2\n3,2024\n")
+            self.assertEqual(
+                list(dataset(file, [(0, "inc"), (1, "year")], 2024)), [["3", "2024"]]
+            )
+            with self.assertRaisesRegex(ValueError, "malformed"):
+                list(dataset(file, [(0, "inc")], 2025))
+            with self.assertRaisesRegex(ValueError, "changed field"):
+                list(dataset(file, [(0, "different")], 2024))
+
+
+if __name__ == "__main__":
+    unittest.main()

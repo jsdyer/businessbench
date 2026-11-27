@@ -1,0 +1,37 @@
+{
+  "year": 2024,
+  "checked_at": "2026-11-27T18:14:13+00:00",
+  "source": "https://open.canada.ca/data/en/dataset/3f9e1080-4a08-4c0f-ace7-1b94a1afd61d",
+  "resources": {
+    "names": "https://ised-isde.canada.ca/site/ised/sites/default/files/documents/fpd-dpf-naics_descriptors_2024.csv",
+    "revenue": "https://ised-isde.canada.ca/site/financial-performance-data/sites/default/files/documents/total_revenue_2024_30k_5m.csv",
+    "expenses": "https://ised-isde.canada.ca/site/financial-performance-data/sites/default/files/documents/total_expenses_value_2024_30k_5m.csv",
+    "profits": "https://ised-isde.canada.ca/site/financial-performance-data/sites/default/files/documents/profit_non_profit_businesses_2024_30k_5m.csv",
+    "dictionary": "https://ised-isde.canada.ca/site/ised/sites/default/files/documents/fpd-dpf-data_dictionary_2022.txt"
+  },
+  "shards": [
+    "11.json.gz",
+    "21.json.gz",
+    "22.json.gz",
+    "23.json.gz",
+    "31.json.gz",
+    "32.json.gz",
+    "33.json.gz",
+    "41.json.gz",
+    "44.json.gz",
+    "45.json.gz",
+    "48.json.gz",
+    "49.json.gz",
+    "51.json.gz",
+    "53.json.gz",
+    "54.json.gz",
+    "55.json.gz",
+    "56.json.gz",
+    "61.json.gz",
+    "62.json.gz",
+    "71.json.gz",
+    "72.json.gz",
+    "81.json.gz"
+  ],
+  "industry_count": 1160
+}

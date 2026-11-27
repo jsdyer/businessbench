@@ -1,0 +1,37 @@
+name: Refresh Canadian small-business financial benchmarks
+on:
+  schedule:
+    - cron: '19 11 7 * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: refresh-ised-financial-benchmarks
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check ISED financial performance data
+        run: python collectors/ised.py
+      - name: Validate financial profiles
+        run: python -m unittest discover -s tests -v && python scripts/build.py
+      - name: Preserve the validated edition and rebuild Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add data/
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Refresh ISED small-business financial benchmarks'
+            git push origin HEAD:main
+          fi
+          gh workflow run pages.yml --ref main

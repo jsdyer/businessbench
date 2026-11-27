@@ -1,16 +1,15 @@
-"""Exercise the built starter at a project subpath in Chromium."""
+"""Exercise the real saved edition at its Pages path, including mobile and no JavaScript."""
+
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import os
 from pathlib import Path
-import shutil
 import tempfile
-import sys
 import threading
-from playwright.sync_api import sync_playwright
+
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-from build import build
 
 
 class QuietHandler(SimpleHTTPRequestHandler):
@@ -22,52 +21,100 @@ def main():
     screenshots = ROOT / "browser-checks"
     screenshots.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory() as temporary:
-        shutil.copytree(ROOT / "dist", Path(temporary) / "example-tool")
-        example = Path(temporary) / "preset-fixture"
-        example.mkdir()
-        shutil.copytree(ROOT / "web", example / "web")
-        shutil.copytree(ROOT / "examples/common-pages", example / "common-pages")
-        for name in ("tool.json", "README.md"):
-            shutil.copyfile(ROOT / name, example / name)
-        build(example)
-        server = ThreadingHTTPServer(("127.0.0.1", 0), partial(QuietHandler, directory=temporary))
+        root = Path(temporary)
+        (root / "businessbench").symlink_to(ROOT / "dist", target_is_directory=True)
+        (root / "assets").mkdir()
+        (root / "assets/tool-metrics.js").touch()
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), partial(QuietHandler, directory=root)
+        )
         threading.Thread(target=server.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{server.server_port}/businessbench/"
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch()
-                page = browser.new_page(viewport={"width": 1280, "height": 1000})
+                browser = p.chromium.launch(
+                    executable_path=os.environ.get("CHROMIUM_PATH")
+                )
+                page = browser.new_page(viewport={"width": 1280, "height": 900})
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                page.goto(f"http://127.0.0.1:{server.server_port}/example-tool/")
-                assert page.locator("#input").input_value() == "Halifax\nLangley\nHalifax\nVancouver"
-                assert page.locator("#output").input_value() == "Halifax\nLangley\nVancouver"
-                assert "1 duplicate removed" in page.locator("#status").inner_text()
-                page.locator("#input").fill('<img src=x onerror="alert(1)">\n<img src=x onerror="alert(1)">')
-                assert page.locator("#output").input_value() == '<img src=x onerror="alert(1)">'
-                assert page.locator("img").count() == 0
-                page.locator("#clear").click()
-                assert page.locator("#output").input_value() == ""
-                assert "Paste one item per line" in page.locator("#status").inner_text()
-                page.locator("#sample").click()
-                assert page.locator("#output").input_value() == "Halifax\nLangley\nVancouver"
-                page.screenshot(path=str(screenshots / "desktop.png"), full_page=True)
+                page.goto(url)
+                expect(page.get_by_role("heading", level=1)).to_have_text(
+                    "How does your business compare?"
+                )
+                expect(page.locator("#cohort")).to_contain_text("businesses · Canada")
+                page.screenshot(path=str(screenshots / "desktop.png"))
                 page.set_viewport_size({"width": 390, "height": 844})
-                page.goto(f"http://127.0.0.1:{server.server_port}/example-tool/")
-                assert page.locator("#input").bounding_box()["y"] < 844
-                assert page.locator("#output").input_value() == "Halifax\nLangley\nVancouver"
-                assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-                page.screenshot(path=str(screenshots / "mobile.png"), full_page=True)
-                page.goto(f"http://127.0.0.1:{server.server_port}/preset-fixture/dist/remove-duplicate-cities/")
-                assert page.locator("#output").input_value() == "Vancouver\nHalifax\nCharlottetown"
-                page.locator("#input").fill("Surrey\nSurrey\nOttawa")
-                assert page.locator("#output").input_value() == "Surrey\nOttawa"
-                page.get_by_role("button", name="Restore example").click()
-                assert page.locator("#output").input_value() == "Vancouver\nHalifax\nCharlottetown"
+                assert page.locator("#industry-find").bounding_box()["y"] < 844
+                assert page.locator(".kpi strong").first.bounding_box()["y"] < 824
+                assert page.evaluate(
+                    "document.documentElement.scrollWidth <= innerWidth"
+                )
+                page.screenshot(path=str(screenshots / "mobile.png"))
+                page.locator("#industry-find").fill("7225")
+                page.locator("#industry-matches").get_by_role(
+                    "link",
+                    name="Full-service restaurants and limited-service eating places · 7225",
+                    exact=True,
+                ).click()
+                assert page.url == url + "records/7225/"
+                expect(page.locator("h1")).to_contain_text("financial benchmarks")
+                expect(page.locator("#cohort")).to_contain_text("Canada")
+                initial_mean = page.locator(".kpi strong").first.inner_text()
+                page.locator("#region").select_option("35")
+                expect(page.locator("#cohort")).to_contain_text("Ontario")
+                assert page.url.endswith("records/7225/?area=35")
+                page.reload()
+                expect(page.locator("#region")).to_have_value("35")
+                private_requests = []
+                page.on("request", lambda req: private_requests.append(req.url))
+                page.locator("#revenue").fill("120000")
+                page.locator("#expenses").fill("84000")
+                page.get_by_role("button", name="Compare my margin").click()
+                expect(page.locator("#answer")).to_contain_text("Your margin is 30.0%.")
+                page.locator("#expenses").fill("130000")
+                expect(page.locator("#answer")).to_contain_text("Your margin is -8.3%.")
+                page.locator("#region").select_option("00")
+                expect(page.locator(".kpi strong").first).to_have_text(initial_mean)
+                assert page.url == url + "records/7225/"
+                assert not any(
+                    "120000" in req or "84000" in req or "130000" in req
+                    for req in private_requests
+                )
+                page.set_viewport_size({"width": 320, "height": 700})
+                assert page.evaluate(
+                    "document.documentElement.scrollWidth <= innerWidth"
+                )
+                page.goto(url + "records/")
+                page.locator("#directory-filter").fill("541920")
+                expect(page.locator("[data-search]:visible").first).to_contain_text(
+                    "Photographic services"
+                )
+                page.locator("#directory-filter").fill("nonexistentind")
+                expect(page.locator("#directory-count")).to_have_text("0 profiles")
+                static = browser.new_page(
+                    java_script_enabled=False, viewport={"width": 390, "height": 844}
+                )
+                static.goto(url)
+                expect(
+                    static.get_by_role("link", name="Browse all industries")
+                ).to_be_visible()
+                expect(static.locator("#industry-find")).to_be_hidden()
+                expect(static.locator("#revenue")).to_be_hidden()
+                static.goto(url + "records/7225/")
+                expect(static.locator("#cohort")).to_contain_text("businesses · Canada")
+                static.get_by_text("Published regions for", exact=False).click()
+                expect(static.get_by_text("Ontario", exact=True).last).to_be_visible()
+                expect(
+                    static.get_by_role("link", name="Download benchmark figures (CSV)")
+                ).to_have_attribute("href", "../../data/benchmarks.csv")
                 assert not errors, errors
                 browser.close()
-            print("Browser checks passed: project subpath, sample, clear, safe text and mobile layout")
         finally:
             server.shutdown()
+    print(
+        "Browser checks passed for first view, search, region, private comparison, mobile and script-free access."
+    )
 
 
 if __name__ == "__main__":

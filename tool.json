@@ -1,16 +1,19 @@
 {
-  "id": "coolcode-tool-template",
-  "title": "CoolCode Tool Starter",
-  "description": "A browser-only example that trims lines and removes exact duplicates.",
-  "category": "security",
-  "tags": ["text", "lines", "duplicates"],
-  "icon": "scan-search",
-  "url": "/coolcode-tool-template/",
-  "source": "https://github.com/jsdyer/coolcode-tool-template",
+  "id": "businessbench",
+  "title": "Business Bench",
+  "description": "Compare your annual revenue, expenses and profit margin with published Canadian small-business financial benchmarks by industry and region.",
+  "category": "money",
+  "tags": ["small business", "NAICS", "ISED", "profit margin", "Canada", "expenses", "financial benchmarks"],
+  "icon": "chart-candlestick",
+  "url": "/businessbench/",
+  "source": "https://github.com/jsdyer/businessbench",
   "hosting": "project",
   "access": "browser",
   "data_info": {
-    "mode": "local",
-    "detail": "The browser reads the text you paste and compares its lines."
-  }
+    "mode": "snapshot",
+    "detail": "ISED annual financial performance data for incorporated and unincorporated businesses with $30,000 to $5 million in revenue. The source is checked monthly.",
+    "cadence": "Monthly",
+    "probes": [{"label":"ISED sources checked","url":"https://coolcode.ca/businessbench/data/status.json","path":["checked_at"],"count_at":{"path":["industry_count"],"unit":"industry profiles"}}]
+  },
+  "result_directory": { "title": "Canadian small-business industry financial profiles", "path": "records/" }
 }
