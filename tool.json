@@ -15,5 +15,6 @@
     "cadence": "Monthly",
     "probes": [{"label":"ISED sources checked","url":"https://coolcode.ca/businessbench/data/status.json","path":["checked_at"],"count_at":{"path":["industry_count"],"unit":"industry profiles"}}]
   },
+  "use_cases": [{ "title": "Compare incorporation filing fees", "path": "fees.html" }],
   "result_directory": { "title": "Canadian small-business industry financial profiles", "path": "records/" }
 }

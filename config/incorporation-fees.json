@@ -1,0 +1,33 @@
+{
+  "reviewed": "2026-11-28",
+  "jurisdictions": [
+    {
+      "name": "Federal",
+      "filing": 20000,
+      "word_name": 0,
+      "note": "Corporations Canada includes the corporate name search in the standard online incorporation process.",
+      "sources": [["Corporations Canada service fees", "https://ised-isde.canada.ca/site/corporations-canada/en/services-fees-and-processing-times"]]
+    },
+    {
+      "name": "British Columbia",
+      "filing": 35000,
+      "word_name": 3000,
+      "note": "A numbered BC company can use its assigned incorporation number. A word name requires name approval. The amounts here are basic registry fees. BC OnLine also lists a $1.50 service charge per applicable transaction.",
+      "sources": [["BC registry filing and name fees", "https://www.corporateonline.gov.bc.ca/WebHelp/fee_schedule.htm"], ["BC OnLine service charges", "https://www.bconline.gov.bc.ca/price_list.html"]]
+    },
+    {
+      "name": "Ontario",
+      "filing": 30000,
+      "word_name": null,
+      "note": "For a word name, Ontario requires an Ontario-biased or weighted Nuans report from a private supplier. Add the price quoted by your supplier. A numbered corporation can skip the report.",
+      "sources": [["ServiceOntario incorporation and name requirements", "https://www.ontario.ca/page/business/start/register-your-business-online"]]
+    },
+    {
+      "name": "Nova Scotia",
+      "filing": 20000,
+      "word_name": 6052,
+      "note": "The word-name example uses an Atlantic region name search. A Canada-wide search costs $75.58 instead. With a qualifying Nuans report already in hand, the registry charges $15.12 for either search. Reserving a numbered company name is free.",
+      "sources": [["Registry of Joint Stock Companies incorporation fee", "https://www.novascotia.ca/incorporate-limited-company"], ["Nova Scotia name reservation fees and exceptions", "https://www.novascotia.ca/reserve-name-your-business-or-non-profit"]]
+    }
+  ]
+}

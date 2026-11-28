@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from collectors.ised import GEO
 from search_metadata import add_search_metadata
+from fees import comparison as fee_comparison
 
 BASE = "https://coolcode.ca/businessbench/"
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -274,8 +275,14 @@ def build(root=ROOT):
                 out = add_search_metadata(
                     out, tool, category="BusinessApplication", datasets=[dataset]
                 )
-            write(stage / path / "index.html", out)
+            dest_page = stage / path if path.endswith(".html") else stage / path / "index.html"
+            write(dest_page, out)
 
+        save(
+            "fees.html", "Compare business incorporation fees in Canada",
+            "Compare federal, BC, Ontario and Nova Scotia filing fees for an ordinary numbered or named company, with links to the official registries.",
+            fee_comparison(read(root / "config/incorporation-fees.json")),
+        )
         selected = profiles[feature]
         hero = (
             '<div class="hero"><div><p class="eyebrow">Canadian small-business benchmarks</p><h1>How does your business compare?</h1>'

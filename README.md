@@ -1,7 +1,7 @@
 # Business Bench
 
 <!-- coolcode:guide -->
-Choose a Canadian industry and region, then enter annual revenue and expenses to compare a profit margin privately. In 2024, the 7,546 businesses in the photographic services cohort averaged $142,100 in revenue and $49,300 in net profit. Open a profile for quality grades, revenue quartiles and the original ISED files.
+Choose a Canadian industry and region, then enter annual revenue and expenses to compare a profit margin privately. In 2024, the 7,546 businesses in the photographic services cohort averaged $142,100 in revenue and $49,300 in net profit. Open a profile for quality grades, revenue quartiles and the original ISED files. Compare standard incorporation fees for a numbered or named company federally, in British Columbia, Ontario or Nova Scotia.
 <!-- /coolcode:guide -->
 
 [Open Business Bench](https://coolcode.ca/businessbench/) · [Browse industry profiles](https://coolcode.ca/businessbench/records/) · [Download the financial data](https://coolcode.ca/businessbench/data/benchmarks.csv)
@@ -15,6 +15,10 @@ A national industry earns a profile when the source supplies a business count an
 The private calculator divides the visitor’s profit (revenue less expenses) by revenue. Its peer margin divides ISED’s published mean net profit by mean revenue for the selected cohort. Independently rounded figures may differ from subtracting the displayed means. The percentage of profitable businesses is a separate published measure. Visitors’ financial inputs remain in memory and have no submission names, analytics events or storage. The selected geography can be shared using the public `?area=` parameter. Standard CoolCode metrics record ordinary page activity.
 
 The project publishes one self-canonical, readable HTML page per industry, along with an HTML directory, child sitemap and a full CSV. National figures, the regional summary, source references and links to related profiles work with JavaScript disabled. CSV blanks represent unavailable values. Quality columns apply to the immediately preceding amount.
+
+## Incorporation filing fees
+
+[Compare incorporation fees](https://coolcode.ca/businessbench/fees.html) for ordinary for-profit share companies in four jurisdictions. The comparison separates the basic filing from name searches and identifies supplier-priced reports. Service charges, annual filing costs and extra-provincial registrations fall outside the totals. Private quote entries remain in the tab. Each row links to the registry. To refresh the fee page, verify those links, edit the amounts in cents in `config/incorporation-fees.json`, and set its review date to the actual date of that check. This editorial review runs separately from the ISED collector.
 
 ## When it updates
 

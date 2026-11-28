@@ -108,6 +108,19 @@ def main():
                 expect(
                     static.get_by_role("link", name="Download benchmark figures (CSV)")
                 ).to_have_attribute("href", "../../data/benchmarks.csv")
+                static.get_by_role("link", name="Incorporation fees", exact=True).click()
+                expect(static.locator("h1")).to_contain_text("incorporate")
+                expect(static.get_by_text("$260.52", exact=True)).to_be_visible()
+                page.goto(url + "fees.html")
+                page.locator("#registry").select_option(label="Ontario")
+                page.locator("#kind").select_option("word")
+                expect(page.locator("#fee-answer")).to_contain_text("supplier")
+                page.locator("#quote").fill("24.95")
+                expect(page.locator("#fee-answer")).to_contain_text("$324.95")
+                page.locator("#registry").select_option(label="British Columbia")
+                expect(page.locator("#quote")).to_be_hidden()
+                expect(page.locator("#fee-answer")).to_contain_text("$380.00")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 assert not errors, errors
                 browser.close()
         finally:
